@@ -1,0 +1,24 @@
+{
+    "name": "com.make4all.emg_gesture_toolkit",
+    "version": "1.0.0",
+    "displayName": "EMG Gesture Toolkit",
+    "description": "This toolkit remaps vr contoller input to keyboard input",
+    "unity": "2021.3",
+    "unityRelease": "13f1",
+    "documentationUrl": "https://github.com/georgewang0608/EMG_GESTURE_TOOLKIT",
+    "changelogUrl": "https://github.com/georgewang0608/EMG_GESTURE_TOOLKIT",
+    "licensesUrl": "https://github.com/georgewang0608/EMG_GESTURE_TOOLKIT",    
+    "dependencies": {
+
+   },
+   "keywords": [
+      "EMG",
+      "Gesture",
+      "Toolkit"
+    ],
+    "author": {
+      "name": "George Wang",
+      "email": "yunqiw68@uw.edu",
+      "url": "https://make4all.org/"
+    }
+  }
