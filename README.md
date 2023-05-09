@@ -1,3 +1,16 @@
+# how to install 
+1. install node.js https://nodejs.org/en
+2. open vscode
+3. on terminal, run `npm install`
+
+## how to run
+1. open vscode
+2. on terminal run `npm`
+3. on terminal, run `cd server`
+4. run `node server.js`
+5. start a new terminal and type in `npm start`
+6. it should open on screen
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
