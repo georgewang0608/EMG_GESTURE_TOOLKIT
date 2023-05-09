@@ -2,7 +2,7 @@ from globals import *
 
 biosig_names = ["EMG","IMU","LeapLeft","LeapRight","RGBcamera","SynchData"]
 
-def rectify_EMG(data, N=4, Wn=40, fs=2000):
+def rectify_EMG(data, N, Wn, fs):
     # 0. demean EMG data
     data = data - np.mean(data)
     
@@ -18,7 +18,7 @@ def rectify_EMG(data, N=4, Wn=40, fs=2000):
     lp_filtered = signal.sosfilt(sos_low,rectified)
     return lp_filtered
 
-def movavg_EMG(data,window=100,overlap=0.5,fs=2000):
+def movavg_EMG(data, window, overlap, fs):
     # 200 ms window, overlap = 0 is no overlap, overlap=1 is complete overlap 
     N = int(1*window/1000*fs) # number of datapoints in one window
     N_overlap = int(N*overlap)
@@ -56,14 +56,10 @@ def ignore_repeated_files(files):
         files_no_repeats.append(files[-1])
     return files_no_repeats
 
-def read_and_save_cleaned_data(participantID="P101",n_interpolate=100,bound_size=1e-3):#,df_EMG_exptr_def,df_EMG_usr_def,df_EMG_calib,df_EMG_rehab):
+def read_and_save_cleaned_data(participantID="P101", N=4, Wn=40, fs=2000, window=100,overlap=0.5, mov_fs=2000, n_interpolate=100, bound_size=1e-3):#,df_EMG_exptr_def,df_EMG_usr_def,df_EMG_calib,df_EMG_rehab):
     path = global_path + participantID+"/"
     save_path = temp_path + participantID + "/"
-    # print(save_path)
-    # path = global_path + participantID
-    # save_path = temp_path
     files = os.listdir(path)
-    # print(files)
     # why 
     files = copy.deepcopy(files)
     print(files)
@@ -117,11 +113,11 @@ def read_and_save_cleaned_data(participantID="P101",n_interpolate=100,bound_size
                 df_EMG = df_EMG.iloc[::2, :] # participant has redundant EMG activity
 
             # filter raw EMG signals
-            df_EMG_filt = df_EMG.apply(rectify_EMG,axis=0)
+            df_EMG_filt = df_EMG.apply(rectify_EMG,axis=0, N=N, Wn=Wn, fs=fs)
             time_EMG = np.linspace(0,len(df_EMG)/2000,len(df_EMG)) # TODO CHECK TO SEE IF EMG IS 2000 Hz 
 
             # compute moving average time x 16 channels
-            df_EMG_movavg = df_EMG_filt.apply(movavg_EMG,axis=0)
+            df_EMG_movavg = df_EMG_filt.apply(movavg_EMG,axis=0, window=window, overlap=overlap, fs=mov_fs)
             # save moving average as csv files
             if not os.path.isdir(temp_path + participantID):
                 os.mkdir(temp_path + participantID)
@@ -141,10 +137,16 @@ def read_and_save_cleaned_data(participantID="P101",n_interpolate=100,bound_size
 #     print('running ',pID)
 #     read_and_save_cleaned_data(pID)#,df_EMG_exptr_def,df_EMG_usr_def,df_EMG_calib,df_EMG_rehab)
 # Check if the patient ID is provided as a command-line argument
-if len(sys.argv) < 2:
-    print("Please provide the patient ID as a command-line argument.")
+if len(sys.argv) < 8:
+    print("Please provide the participant ID and configurations as a command-line argument.")
     sys.exit(1)
 
-patientId = sys.argv[1]
-read_and_save_cleaned_data(patientId)
+participantID = sys.argv[1]
+order = float(sys.argv[2])
+frequency = float(sys.argv[3])
+samp_frequency = float(sys.argv[4])
+window = float(sys.argv[5])
+overlap = float(sys.argv[6])
+movavg_fs = float(sys.argv[7])
+read_and_save_cleaned_data(participantID, order, frequency, samp_frequency, window, overlap, movavg_fs)
 sys.exit(0)

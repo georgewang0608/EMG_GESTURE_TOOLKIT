@@ -32,7 +32,13 @@ const upload = multer({ storage: storage });
 
 app.post('/api/uploadfile', upload.single('myFile'), function(req, res, next) {
     const file = req.file;
-    const patientId = req.body.patientId;
+    const participantID = req.body.participantID;
+    const order = req.body.order;
+    const frequency = req.body.frequency;
+    const samp_frequency = req.body.samp_frequency;
+    const window = req.body.window;
+    const overlap = req.body.overlap;
+    const movavg_fs = req.body.movavg_fs;
     console.log(req);
     if (!file) {
         const error = new Error('Please upload a file');
@@ -40,7 +46,7 @@ app.post('/api/uploadfile', upload.single('myFile'), function(req, res, next) {
         return next(error);
     }
 
-    const uploadPath = `uploads/${patientId}/`;
+    const uploadPath = `uploads/${participantID}/`;
     createDirectory(uploadPath);
 
     fs.rename(file.path, uploadPath + `${file.originalname}`, function(err) {
@@ -51,8 +57,8 @@ app.post('/api/uploadfile', upload.single('myFile'), function(req, res, next) {
     });
 
     const pythonScriptPath = './processdata.py';
-    console.log(patientId)
-    const pythonProcess = spawn('/Users/test/opt/anaconda3/bin/python', [pythonScriptPath, patientId]);
+    console.log(participantID)
+    const pythonProcess = spawn('/Users/test/opt/anaconda3/bin/python', [pythonScriptPath, participantID, order, frequency, samp_frequency, window, overlap, movavg_fs]);
     pythonProcess.stdout.on('data', function(data) {
         console.log(data.toString()); 
     });
@@ -65,16 +71,15 @@ app.post('/api/uploadfile', upload.single('myFile'), function(req, res, next) {
     });
     pythonProcess.on('close', (code) => {
         if (code === 0) {
-            const filePath = path.join(`./${patientId}/movavg_files/`, `${path.parse(uploadPath + `${file.originalname}`).name}_movavg.csv`); // Replace 'processed_file' with the actual filename
-            console.log(filePath);
-            fs.readFile(filePath, 'utf8', (err, data) => {
-                if (err) {
-                    console.error('Error reading file:', err);
-                    res.status(500).send({ message: 'Error occurred during processing' });
-                } else {
-                    res.send({ fileData: data, fileName: filePath });
-                }
-              });
+            const processed_file = `${path.parse(uploadPath + `${file.originalname}`).name}_movavg.csv`
+            const filePath = path.join(`./${participantID}/movavg_files/`, processed_file); // Replace 'processed_file' with the actual filename
+            const fileData = fs.readFileSync(filePath);
+            console.log(processed_file);
+            // Set the appropriate headers for the download
+            res.setHeader('Content-Type', 'application/octet-stream');
+            res.setHeader('Content-Disposition', `attachment; filename=${processed_file}`);
+            // Send the file data in the response
+            res.send(fileData);
         } else {
           res.status(500).send({ message: 'Error occurred during processing' });
         }
