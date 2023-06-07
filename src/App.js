@@ -1,6 +1,6 @@
 import Header from './components/Header'
 import axios from 'axios';
-import React,{useState, useEffect} from 'react';
+import React,{useState} from 'react';
 
 function App() {  
   const [state, setState] = useState({
@@ -12,7 +12,8 @@ function App() {
     samp_frequency: '',
     window: '',
     overlap: '',
-    movavg_fs: ''
+    movavg_fs: '',
+    processingType: []
   });
 
   const onFileChange = event => {
@@ -21,9 +22,38 @@ function App() {
     setState({ ...state, selectedFile: event.target.files[0] });
    
   };
+
+  // const handleProcessingTypeChange = event => {
+  //   const selectedProcessingType = event.target.value;
+  //   let updatedProcessingType = [...state.processingType];
+  //   if (event.target.checked) {
+  //     // Add the selected processing type to the array
+  //     updatedProcessingType.push(selectedProcessingType);
+  //   } else {
+  //     // Remove the deselected processing type from the array
+  //     updatedProcessingType = updatedProcessingType.filter(
+  //       type => type !== selectedProcessingType
+  //     );
+  //   }
+  //   setState({ ...state, processingType: updatedProcessingType });
+  //   console.log(state.processingType);
+  // };
+  const handleProcessingTypeChange = event => {
+    const selectedProcessingType = event.target.value;
+    const isChecked = event.target.checked;
   
+    setState(prevState => {
+      const updatedProcessingType = isChecked
+        ? [...prevState.processingType, selectedProcessingType] // Add the selected processing type to the array
+        : prevState.processingType.filter(type => type !== selectedProcessingType); // Remove the deselected processing type from the array
+      // console.log(state.processingType);
+      return { ...prevState, processingType: updatedProcessingType };
+    });
+  };
+
   // On file upload (click the upload button)
   const onFileUpload = event => {
+    // console.log(state.processingType);
     event.preventDefault()
     // Create an object of formData
     const formData = new FormData();
@@ -34,6 +64,18 @@ function App() {
     if (!state.participantID) {
       window.alert('Please enter the participantID');
       return;
+    }
+    if (state.processingType[0] === `rectify` && state.processingType.length === 1) {
+      if (!state.order || !state.frequency || !state.samp_frequency) {
+        window.alert('Please enter the configuration for rectify');
+        return;
+      }
+    }
+    if (state.processingType[0] === `movavg` && state.processingType.length === 1) {
+      if (!state.window || !state.overlap || !state.movavg_fs) {
+        window.alert('Please enter the configuration for movavg');
+        return;
+      }
     }
     if (!state.order || !state.frequency || !state.samp_frequency || !state.window || !state.overlap || !state.movavg_fs) {
       window.alert('Please enter the configuration');
@@ -76,7 +118,7 @@ function App() {
         const link = document.createElement('a');
         link.href = url;
         const fileName = state.selectedFile.name.split('.')[0];
-        link.download = `${fileName}_movavg.csv`;
+        link.download = `${fileName}_movavg.zip`;
         link.click();
 
         // Clean up the temporary URL
@@ -85,96 +127,138 @@ function App() {
         window.alert("file downloaded successfully");
       }
     }).catch(error => {
-      console.error(error);
+      if (error.response) {
+        // Request was made and server responded with a non-2xx status code
+        console.error('Server Error:', error.response.data);
+        // Display the error message to the user
+        window.alert('Server Error: ' + error.response.data.message);
+      }
+      // console.error(error);
     });
   };
   
   // File content to be displayed after
   // file upload is complete
   const fileData = () => {
-          if (state.selectedFile) {
-            return (
-              <div>
-                <h2>File Details:</h2>
-                <p>File Name: {state.selectedFile.name}</p>
-                <p>File Type: {state.selectedFile.type}</p>
-                <p>participant ID: {state.participantID}</p> {/* Display patient ID */}    
-              </div>
-            );
-          } else {
-            return (
-              <div>
-                <br/>
-                <h4>Choose before Pressing the Upload button</h4>
-              </div>
-            );
-          }
-        };
-  return (
-      <div className="container">
-        <Header/>
+    if (state.selectedFile) {
+      return (
         <div>
-        <input className="input-file" type='file' onChange={onFileChange}/>
-        <input
-          type="text"
-          value={state.participantID}
-          onChange={(event) => setState({ ...state, participantID: event.target.value })}
-          placeholder="Enter Patient ID"
-        />
+          <h2>File Details:</h2>
+          <p>File Name: {state.selectedFile.name}</p>
+          <p>File Type: {state.selectedFile.type}</p>
+          <p>participant ID: {state.participantID}</p> {/* Display patient ID */}
         </div>
+      );
+    } else {
+      return (
         <div>
-          <h3>Configure signal processing</h3>
-          <p>Retify</p>
-          <input
+          <br/>
+          <h4>Choose before Pressing the Upload button</h4>
+        </div>
+      );
+    }
+  };
+
+  const renderRectifyInputs = () => {
+    const { order, frequency, samp_frequency } = state;
+    return (
+      <>
+      <p>Rectify</p>
+        <input
           type="number"
-          value={state.order}
-          onChange={(event) => setState({ ...state, order: (Math.max(0, event.target.value)===0)?'':event.target.value })}
+          value={order}
+          onChange={event => setState({ ...state, order: event.target.value })}
           placeholder="Enter filter order"
         />
-          <input
+        <input
           type="number"
-          value={state.frequency}
-          onChange={(event) => setState({ ...state, frequency: (Math.max(0, event.target.value)===0)?'':event.target.value })}
+          value={frequency}
+          onChange={event => setState({ ...state, frequency: event.target.value })}
           placeholder="Enter frequency"
         />
         <input
           type="number"
-          value={state.samp_frequency}
-          onChange={(event) => setState({ ...state, samp_frequency: (Math.max(0, event.target.value)===0)?'':event.target.value })}
+          value={samp_frequency}
+          onChange={event => setState({ ...state, samp_frequency: event.target.value })}
           placeholder="Enter sampling frequency"
         />
+      </>
+    );
+  };
+  
+  const renderMovavgInputs = () => {
+    const { window, overlap, movavg_fs } = state;
+    return (
+      <>
         <p>Movavg</p>
         <input
           type="number"
-          value={state.window}
-          onChange={(event) => setState({ ...state, window: (Math.max(0, event.target.value)===0)?'':event.target.value})}
+          value={window}
+          onChange={event => setState({ ...state, window: event.target.value })}
           placeholder="Enter window"
         />
         <input
           type="number"
-          value={state.overlap}
-          onChange={(event) => {
-            let value = event.target.value;
-            value = Math.min(1, Number(value));
-            value = Math.max(0, value)
-            setState({ ...state, overlap: (value===0)?'':value});
-        }}
+          value={overlap}
+          onChange={event => setState({ ...state, overlap: event.target.value })}
           placeholder="Enter overlap"
         />
         <input
           type="number"
-          value={state.movavg_fs}
-          onChange={(event) => setState({ ...state, movavg_fs: (Math.max(0, event.target.value)===0)?'':event.target.value})}
-          placeholder="Enter movavg frenquency"
+          value={movavg_fs}
+          onChange={event => setState({ ...state, movavg_fs: event.target.value })}
+          placeholder="Enter movavg frequency"
         />
-        </div>  
-        <div>
-        <button onClick={onFileUpload}>
-            Run Scipt
-        </button>
-        </div>
-          {fileData()}
+      </>
+    );
+  };
+      
+  return (
+    <div className="container">
+      <Header />
+      <div>
+        <input className="input-file" type="file" onChange={onFileChange} />
+        <input
+          type="text"
+          value={state.participantID}
+          onChange={event => setState({ ...state, participantID: event.target.value })}
+          placeholder="Enter Participant ID"
+        />
       </div>
+      <div>
+        <h3>Configure signal processing</h3>
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              name="rectify"
+              value="rectify"
+              checked={state.processingType.includes('rectify')}
+              onChange={handleProcessingTypeChange}
+            />
+            Rectify
+          </label>
+        </div>
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              name="movavg"
+              value="movavg"
+              checked={state.processingType.includes('movavg')}
+              onChange={handleProcessingTypeChange}
+            />
+            Movavg
+          </label>
+        </div>
+        {state.processingType.includes('rectify') && renderRectifyInputs()}
+        {state.processingType.includes('movavg') && renderMovavgInputs()}
+      </div>
+      <div>
+        <button onClick={onFileUpload}>Run Script</button>
+      </div>
+      {fileData()}
+    </div>
   );
 }
 export default App;

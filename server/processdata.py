@@ -75,14 +75,16 @@ def read_and_save_cleaned_data(participantID="P101", N=4, Wn=40, fs=2000, window
             continue
         biosig_type = file.split("_")[3]
         print(biosig_type)
-        expt_type = file.split("_")[2] # "experimenter-defined, user-defined, calibration, rehab"  
-        if biosig_type=="EMG" and expt_type != "calibration":
-            EMG_files.append(file)
-            print(EMG_files)
-        elif biosig_type=="LeapRight" and expt_type != "calibration":
-            LeapRight_files.append(file)
-        elif biosig_type=="IMU" and expt_type != "calibration":
-            IMU_files.append(file)
+        extension = file.split(".")[1]
+        expt_type = file.split("_")[2] # "experimenter-defined, user-defined, calibration, rehab"
+        if extension == "txt":
+            if biosig_type=="EMG" and expt_type != "calibration":
+                EMG_files.append(file)
+                print(EMG_files)
+            elif biosig_type=="LeapRight" and expt_type != "calibration":
+                LeapRight_files.append(file)
+            elif biosig_type=="IMU" and expt_type != "calibration":
+                IMU_files.append(file)
 
     # there should be 100 files for experimenter defined, 50 files for user-defined, 1-50 file for calibration, and 31 files for rehab 
     iN = 0
@@ -94,6 +96,9 @@ def read_and_save_cleaned_data(participantID="P101", N=4, Wn=40, fs=2000, window
             break
         
     for ix,file in enumerate(EMG_files):
+        # extension = file.split(".")[1]
+        # if extension != "txt":
+        #     continue
         split_filename = file.split("_")
         expt_type = split_filename[2] # "experimenter-defined, user-defined, calibration, rehab" 
         gestureID = split_filename[4]
