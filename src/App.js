@@ -167,19 +167,19 @@ function App() {
         <input
           type="number"
           value={order}
-          onChange={event => setState({ ...state, order: event.target.value })}
+          onChange={event => setState({ ...state, order: (Math.max(0, event.target.value)===0)?'':event.target.value })}
           placeholder="Enter filter order"
         />
         <input
           type="number"
           value={frequency}
-          onChange={event => setState({ ...state, frequency: event.target.value })}
+          onChange={event => setState({ ...state, frequency: (Math.max(0, event.target.value)===0)?'':event.target.value })}
           placeholder="Enter frequency"
         />
         <input
           type="number"
           value={samp_frequency}
-          onChange={event => setState({ ...state, samp_frequency: event.target.value })}
+          onChange={event => setState({ ...state, samp_frequency: (Math.max(0, event.target.value)===0)?'':event.target.value })}
           placeholder="Enter sampling frequency"
         />
       </>
@@ -194,19 +194,24 @@ function App() {
         <input
           type="number"
           value={window}
-          onChange={event => setState({ ...state, window: event.target.value })}
+          onChange={event => setState({ ...state, window: (Math.max(0, event.target.value)===0)?'':event.target.value })}
           placeholder="Enter window"
         />
         <input
           type="number"
           value={overlap}
-          onChange={event => setState({ ...state, overlap: event.target.value })}
-          placeholder="Enter overlap"
+          onChange={(event) => {
+            let value = event.target.value;
+            value = Math.min(1, Number(value));
+            value = Math.max(0, value)
+            setState({ ...state, overlap: (value===0)?'':value});
+        }}            
+        placeholder="Enter overlap"
         />
         <input
           type="number"
           value={movavg_fs}
-          onChange={event => setState({ ...state, movavg_fs: event.target.value })}
+          onChange={event => setState({ ...state, movavg_fs: (Math.max(0, event.target.value)===0)?'':event.target.value })}
           placeholder="Enter movavg frequency"
         />
       </>
