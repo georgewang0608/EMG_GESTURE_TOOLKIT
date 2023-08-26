@@ -8,6 +8,7 @@ const archiver = require('archiver');
 const unzipper = require('unzipper');
 // const AdmZip = require('adm-zip');
 const fs_extra = require('fs-extra');
+const { stringify } = require('querystring');
 
 // const sanitizeFilename = require('sanitize-filename');
 
@@ -36,6 +37,104 @@ const storage = multer.diskStorage({
   
 const upload = multer({ storage: storage });
 
+const extractAndProcessFiles = async (res, uploadPath, file, participantID, order, frequency, samp_frequency, window, overlap, movavg_fs) => {
+    try {
+      const zipFilePath = uploadPath + '' + file.originalname;
+      console.log(zipFilePath);
+      await unzipper.Open.file(zipFilePath)
+        .then(async (archive) => {
+          await archive.extract({ path: uploadPath });
+          console.log("2");
+          const pythonScriptPath = './processdata.py';
+          console.log(participantID);
+          const pythonProcess = spawn('/Users/test/opt/anaconda3/bin/python', [pythonScriptPath, participantID, order, frequency, samp_frequency, window, overlap, movavg_fs]);
+  
+          pythonProcess.stdout.on('data', function(data) {
+            console.log(data.toString()); 
+          });
+  
+          pythonProcess.stderr.on('data', function(data) {
+            console.error(data.toString());
+          });
+  
+          await new Promise((resolve) => {
+            pythonProcess.on('exit', resolve);
+          });
+  
+          console.log("Exited with code " + pythonProcess.exitCode);
+  
+          if (pythonProcess.exitCode === 0) {
+            const movavgFolderPath = `./${participantID}/movavg_files/`;
+            const processedFiles = fs.readdirSync(movavgFolderPath);
+            fs.unlinkSync(zipFilePath);
+            console.log(processedFiles);
+  
+            const zipFile = `${path.parse(file.originalname).name}_movavg.zip`;
+            console.log("3");
+            const filePath = path.join(`./${participantID}/movavg_files/`, zipFile);
+            console.log(filePath);
+  
+            const output = fs.createWriteStream(filePath);
+            const archive = archiver('zip', { zlib: { level: 9 } });
+  
+            output.on('close', function () {
+              console.log(archive.pointer() + ' total bytes');
+              console.log('archiver has been finalized and the output file descriptor has closed.');
+            //   const fileData = fs.readFileSync(filePath);
+              const stat = fs.statSync(filePath);
+              res.setHeader('Content-Type', 'application/zip');
+              res.setHeader('Content-Length', stat.size);
+              res.setHeader('Content-Disposition', `attachment; filename="${zipFile}"`);
+              res.writeHead(200, {
+                'Content-Type': 'application/zip',
+                'Content-Disposition': `attachment; filename="${zipFile}"`,
+                'Content-Length': stat.size,
+              });
+              console.log(stat.size);
+              const fileStream = fs.createReadStream(filePath);
+              fileStream.pipe(res);
+              res.on('finish', () => {
+                // Streaming process is complete
+                console.log('File streaming to response finished.');
+                fs_extra.removeSync(`./${participantID}`);
+                fs_extra.removeSync(`./uploads/${participantID}`);
+                console.log('File directory successfully deleted');
+                res.end();
+              });
+            //   res.send(fileData);
+            //   fs_extra.removeSync(`./${participantID}`);
+            //   fs_extra.removeSync(`./uploads/${participantID}`);
+            });
+  
+            archive.pipe(output);
+  
+            fs.readdir(`./${participantID}/movavg_files/`, function (err, files) {
+              if (err) {
+                throw err;
+              }
+  
+              files.forEach(function (file) {
+                const filePath = path.join(`./${participantID}/movavg_files/`, file);
+                archive.file(filePath, { name: file });
+              });
+  
+              archive.finalize();
+            });
+          } else {
+            res.status(500).send({ message: 'Error occurred during processing' });
+          }
+        })
+        .catch((error) => {
+          console.error('An error occurred while extracting the archive:', error);
+          res.status(500).send({ message: 'Error occurred during processing' });
+        });
+    } catch (error) {
+      console.error('An error occurred:', error);
+      res.status(500).send({ message: 'Error occurred during processing' });
+    }
+  };
+  
+
 app.post('/api/uploadfile', upload.single('myFile'), function(req, res, next) {
     const file = req.file;
     const participantID = req.body.participantID;
@@ -61,91 +160,28 @@ app.post('/api/uploadfile', upload.single('myFile'), function(req, res, next) {
     const uploadPath = `./uploads/${participantID}/`;
     createDirectory(uploadPath);
 
-    fs.rename(file.path, uploadPath + `${file.originalname}`, function(err) {
+    fs.rename(file.path, uploadPath + `${String(file.filename)}`, function(err) {
         if (err) {
             console.error(err);
             return res.status(500).send(err);
         }
     });
 
-    console.log(uploadPath + `${file.originalname}`);
-    const zipFilePath = path.join(uploadPath, `${file.originalname}`);
-    // zip.extractAllTo(uploadPath, true);
-    // fs.unlinkSync(uploadPath + `${file.originalname}`);
-    fs.createReadStream(zipFilePath)
-    .pipe(unzipper.Extract({ path: uploadPath }))
-    .on('close', function () {
-        const pythonScriptPath = './processdata.py';
-        console.log(participantID)
-        const pythonProcess = spawn('/Users/test/opt/anaconda3/bin/python', [pythonScriptPath, participantID, order, frequency, samp_frequency, window, overlap, movavg_fs]);
-        pythonProcess.stdout.on('data', function(data) {
-            console.log(data.toString()); 
-        });
-        
-        pythonProcess.stderr.on('data', function(data) {
-            console.error(data.toString());
-        });
-        pythonProcess.on('exit', function(code) {
-            console.log("Exited with code " + code);
-        });
-        pythonProcess.on('close', (code) => {
-            if (code === 0) {
-                const movavgFolderPath = `./${participantID}/movavg_files/`;
-                const processedFiles = fs.readdirSync(movavgFolderPath);
-                fs.unlinkSync(uploadPath + `${file.originalname}`);
-                console.log(processedFiles)
-                // const zip = new AdmZip();
-                // processedFiles.forEach((processedFile) => {
-                // const filePath = path.join(movavgFolderPath, processedFile);
-                // const fileData = fs.readFileSync(filePath);
-                // zip.addFile(processedFile, fileData);
-                // });
-                const zipFile = `${path.parse(file.originalname).name}_movavg.zip`;
-                const filePath = path.join(`./${participantID}/movavg_files/`, zipFile); // Replace 'processed_file' with the actual filename
-                const output = fs.createWriteStream(filePath);
-                // zip.writeZip(filePath);
-                const archive = archiver('zip', { zlib: { level: 9 } });
-                output.on('close', function () {
-                    console.log(archive.pointer() + ' total bytes');
-                    console.log('archiver has been finalized and the output file descriptor has closed.');
-                  });
-                archive.pipe(output);
+    // console.log(uploadPath + `${file.originalname}`);
+    // const zipFilePath = uploadPath + '' + file.originalname;
+    // console.log(zipFilePath);
+    // console.log("1");
 
-                // Read the directory and add files to the archive
-                fs.readdir(`./${participantID}/movavg_files/`, function (err, files) {
-                if (err) {
-                    throw err;
-                }
-                
-                files.forEach(function (file) {
-                    const filePath = path.join(`./${participantID}/movavg_files/`, file);
-                
-                    // Add the file to the archive with a custom name
-                    archive.file(filePath, { name: file });
-                });
-                
-                // Finalize the archive to complete the zipping process
-                archive.finalize();
-                });
-            // const fileData = fs.readFileSync(filePath);
-                console.log(zipFile);
-                // Set the appropriate headers for the download
-                res.setHeader('Content-Type', 'application/octet-stream');
-                res.setHeader('Content-Disposition', `attachment; filename=${zipFile}`);
-                // Send the file data in the response
-                // res.send(fileData);
-                  // Stream the zipped file to the response
-                const fileStream = fs.createReadStream(filePath);
-                fileStream.pipe(res);
-                fs_extra.removeSync(`./${participantID}`);
-                fs_extra.removeSync(`./uploads/${participantID}`);
-            } else {
-            res.status(500).send({ message: 'Error occurred during processing' });
-            }
-        });
-    });
-
-    // res.send(file);
+    extractAndProcessFiles(res, uploadPath, file, participantID, order, frequency, samp_frequency, window, overlap, movavg_fs)
+    // .then(() => {
+    //   // Handle the success response
+    //   res.send({ message: 'Files processed successfully.' });
+    // })
+    // .catch((error) => {
+    //   // Handle the error response
+    //   console.error('An error occurred during file processing:', error);
+    //   res.status(500).send({ message: 'Error occurred during file processing.' });
+    // });
 });
 
   

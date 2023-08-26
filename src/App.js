@@ -109,7 +109,7 @@ function App() {
         // window.alert("file uploaded successfully");
         // Extract the filename from the response
         // Create a Blob from the response data
-        const blob = new Blob([res.data], { type: 'application/octet-stream' });
+        const blob = new Blob([res.data], { type: 'application/zip' });
 
         // Generate a temporary URL for the Blob
         const url = URL.createObjectURL(blob);
